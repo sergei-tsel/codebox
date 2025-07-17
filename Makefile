@@ -10,4 +10,4 @@ down:
 rebuild:
 	docker-compose -f docker-compose.yml up --build --force-recreate
 air:
-	cd app && air -c .air.toml
+	air -c .air.toml
