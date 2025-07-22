@@ -4,7 +4,7 @@ Content-Type: application/json
 
 {
   "id": 0,
-  "code": "package main\n\nimport \"fmt\"\n\nfunc main() {\n\treturn \"Hello world!\"\n}",
+  "code": "package main\n\nimport \"fmt\"\n\nfunc main() {\n\tfmt.Println(\"Hello world!\")\n}",
   "language": "golang",
   "image": "golang:1.24"
 }
