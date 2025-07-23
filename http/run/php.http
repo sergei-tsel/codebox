@@ -1,0 +1,10 @@
+### Запуск кода (id - идентификатор запроса, code - код, language - язык, image - образ)
+POST http://localhost:8080/api/run
+Content-Type: application/json
+
+{
+  "id": 0,
+  "code": "<?php\n\necho \"Hello world!\n\"\n?>",
+  "language": "php",
+  "image": "php:8.4.10"
+}

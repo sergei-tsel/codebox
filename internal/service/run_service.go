@@ -121,22 +121,6 @@ func generateDockerfile(language, image string) string {
             COPY code code.py
             ENTRYPOINT ["python", "code.py"]
         `, image)
-	case "javascript":
-		return fmt.Sprintf(`
-            FROM %s
-            WORKDIR /app
-            COPY code code.js
-			RUN chmod +x code.js
-            ENTRYPOINT ["node", "code.js"]
-        `, image)
-	case "ruby":
-		return fmt.Sprintf(`
-            FROM %s
-            WORKDIR /app
-            COPY code code.rb
-			RUN chmod +x code.rb
-            ENTRYPOINT ["ruby", "code.rb"]
-        `, image)
 	case "php":
 		return fmt.Sprintf(`
             FROM %s
@@ -144,14 +128,6 @@ func generateDockerfile(language, image string) string {
             COPY code code.php
 			RUN chmod +x code.php
             ENTRYPOINT ["php", "code.php"]
-        `, image)
-	case "bash":
-		return fmt.Sprintf(`
-            FROM %s
-            WORKDIR /app
-            COPY code code.sh
-            RUN chmod +x code.sh
-            ENTRYPOINT ["/app/code.sh"]
         `, image)
 	default:
 		return fmt.Sprintf(`
