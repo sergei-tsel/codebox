@@ -21,52 +21,43 @@ type RunRequest struct {
 
 func Run(req RunRequest) error {
 	// Создание временной директории с кодом
-	tempDir, err := os.MkdirTemp("", "code-")
+	tempDir, _ := os.MkdirTemp("", "code-")
 	defer os.RemoveAll(tempDir)
 
-	codeFilePath := filepath.Join(tempDir, "code")
+	codeFilePath := ""
+
+	if req.Language == "golang" {
+		codeFilePath = filepath.Join(tempDir, "code.go")
+	} else {
+		codeFilePath = filepath.Join(tempDir, "code")
+	}
+
 	codeFile, _ := os.OpenFile(codeFilePath, os.O_CREATE|os.O_WRONLY, 0644)
-	codeFile.WriteString(req.Code)
 	defer codeFile.Close()
+	codeFile.WriteString(req.Code)
 
-	// Создание временного файла докера
-	dockerfilePath := filepath.Join(tempDir, "Dockerfile")
-	dockerfile, _ := os.OpenFile(dockerfilePath, os.O_CREATE|os.O_WRONLY, 0644)
-	defer dockerfile.Close()
-
-	dockerfileContent := generateDockerfile(req.Language, req.Image)
-	dockerfile.WriteString(dockerfileContent)
-
-	// Сборка образа докера
-	imageName := fmt.Sprintf("temp-%s-%d", req.Language, req.Id)
-	buildCmd := exec.Command(
-		"docker",
-		"build",
-		"-t",
-		imageName,
-		"-f",
-		dockerfilePath,
-		tempDir,
-	)
-	buildCmd.CombinedOutput()
-
-	defer func() {
-		removeCmd := exec.Command("docker", "rmi", "-f", imageName)
-		removeCmd.Run()
-	}()
+	if req.Language == "golang" {
+		// Сборка исполняемого файла для Go
+		buildCmd := exec.Command("go", "build", "-o", "main", codeFilePath)
+		buildCmd.Dir = tempDir
+		buildCmd.Run()
+		codeFilePath = filepath.Join(tempDir, "main")
+	}
 
 	// Запуск контейнера с таймаутом
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	args := []string{"run", "--rm", "-v", fmt.Sprintf("%s:/app", tempDir), req.Image}
 
-	dockerCmd := exec.CommandContext(
-		ctx,
-		"docker",
-		"run",
-		"--rm",
-		imageName,
-	)
+	if req.Language == "golang" {
+		args = append(args, "/app/"+filepath.Base(codeFilePath))
+	}
 
+	dockerCmd := exec.CommandContext(ctx, "docker", args[0:]...)
+	command := getExecutionCommand(req.Language)
+	dockerCmd.Args = append(dockerCmd.Args, command...)
+
+	// Запуск кода
 	byteResult, err := dockerCmd.CombinedOutput()
 
 	output := ""
@@ -99,43 +90,15 @@ func Run(req RunRequest) error {
 	return nil
 }
 
-func generateDockerfile(language, image string) string {
+func getExecutionCommand(language string) []string {
 	switch language {
 	case "golang":
-		return fmt.Sprintf(`
-            FROM %s AS builder
-            WORKDIR /app
-            COPY code code.go
-            RUN CGO_ENABLED=0 GOOS=linux go build -o app code.go
-			RUN chmod +x app
-
-            FROM scratch
-            WORKDIR /app
-            COPY --from=builder /app/app .
-            ENTRYPOINT ["/app/app"]
-        `, image)
+		return []string{"go", "run", "/app/code.go"}
 	case "python":
-		return fmt.Sprintf(`
-            FROM %s
-            WORKDIR /app
-            COPY code code.py
-            ENTRYPOINT ["python", "code.py"]
-        `, image)
+		return []string{"python", "/app/code"}
 	case "php":
-		return fmt.Sprintf(`
-            FROM %s
-            WORKDIR /app
-            COPY code code.php
-			RUN chmod +x code.php
-            ENTRYPOINT ["php", "code.php"]
-        `, image)
+		return []string{"php", "/app/code"}
 	default:
-		return fmt.Sprintf(`
-            FROM %s
-            WORKDIR /app
-            COPY code code
-			RUN chmod +x code
-            ENTRYPOINT ["/app/code"]
-        `, image)
+		return []string{"/app/code"}
 	}
 }
